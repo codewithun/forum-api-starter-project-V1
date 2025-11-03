@@ -17,9 +17,7 @@ jobs:
           POSTGRES_USER: developer
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
-        options: |
-          # Important: since POSTGRES_USER=developer, the default superuser is 'developer'.
-          # Using 'postgres' here fails because that role doesn't exist.
+        options: >-
           --health-cmd="pg_isready -U developer"
           --health-interval=10s
           --health-timeout=5s
@@ -48,13 +46,13 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Wait for Postgres
         run: |
           echo "🕐 Waiting for Postgres to be ready..."
           for i in {1..40}; do
-            if pg_isready -h 127.0.0.1 -p 5432 -U developer -d forumapi_test; then
+            if pg_isready -h 127.0.0.1 -p 5432 -U developer; then
               echo "✅ Postgres is ready!"
               break
             fi
