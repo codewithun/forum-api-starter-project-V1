@@ -1,0 +1,61 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      # Deployment over SSH to your server (EC2 or any Linux VM)
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            # Required secrets:
+            #   APP_DIR: directory on server to place the app (e.g., /var/www/forum-api)
+            #   REPO_URL: git+ssh URL of this repository
+            #   BRANCH: main or master
+            # Optional: PM2_NAME (defaults to forum-api)
+            PM2_NAME=${PM2_NAME:-forum-api}
+
+            mkdir -p "$APP_DIR"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone -b "$BRANCH" "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            # Ensure Node and pm2 exist (install Node via nvm or system packages beforehand)
+            npm ci --omit=dev
+
+            # Run DB migrations for production
+            if [ -f config/database/development.json ]; then
+              npx node-pg-migrate -f config/database/development.json
+            fi
+
+            # Start or restart app using PM2 if available; otherwise, simple nohup
+            if command -v pm2 >/dev/null 2>&1; then
+              pm2 restart "$PM2_NAME" || pm2 start src/app.js --name "$PM2_NAME"
+              pm2 save
+            else
+              # Fallback: run in background (consider using systemd/pm2 for reliability)
+              (nohup node src/app.js >/dev/null 2>&1 & echo $! > app.pid) || true
+            fi
