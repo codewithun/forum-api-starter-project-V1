@@ -16,6 +16,24 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Validate required deployment secrets
+        run: |
+          require() { if [ -z "$1" ]; then echo "::error title=Missing secret:: A required secret is not set."; exit 1; fi; }
+          # We only check presence without printing values.
+          require "${SSH_HOST}"
+          require "${SSH_USER}"
+          require "${SSH_KEY}"
+          require "${APP_DIR}"
+          require "${REPO_URL}"
+          require "${BRANCH}"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+          REPO_URL: ${{ secrets.REPO_URL }}
+          BRANCH: ${{ secrets.BRANCH }}
+
       # Deployment over SSH to your server (EC2 or any Linux VM)
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -59,3 +77,8 @@ jobs:
               # Fallback: run in background (consider using systemd/pm2 for reliability)
               (nohup node src/app.js >/dev/null 2>&1 & echo $! > app.pid) || true
             fi
+        env:
+          APP_DIR: ${{ secrets.APP_DIR }}
+          REPO_URL: ${{ secrets.REPO_URL }}
+          BRANCH: ${{ secrets.BRANCH }}
+          PM2_NAME: ${{ secrets.PM2_NAME }}
