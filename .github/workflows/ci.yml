@@ -7,6 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:14
@@ -17,10 +18,10 @@ jobs:
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
         options: |
-          --health-cmd="pg_isready -U developer -d forumapi_test"
+          --health-cmd="pg_isready -U postgres -d postgres"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=15
 
     env:
       NODE_ENV: test
@@ -34,8 +35,11 @@ jobs:
       ACCCESS_TOKEN_AGE: 3000
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
           cache: "npm"
@@ -45,12 +49,14 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          for i in {1..30}; do
-            if pg_isready -h 127.0.0.1 -p 5432 -U developer -d forumapi_test; then
-              echo "Postgres is ready!"
+          echo "🕐 Waiting for Postgres to be ready..."
+          for i in {1..40}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres; then
+              echo "✅ Postgres is ready!"
               break
             fi
-            sleep 2
+            echo "⏳ Still waiting ($i/40)..."
+            sleep 3
           done
           sleep 3
 
