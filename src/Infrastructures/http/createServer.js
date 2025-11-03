@@ -7,9 +7,14 @@ const threads = require('../../Interfaces/http/api/threads');
 const Jwt = require('@hapi/jwt');
 
 const createServer = async (container) => {
+  const isVercel = process.env.VERCEL === '1';
+
   const server = Hapi.server({
-    host: process.env.HOST,
-    port: process.env.PORT,
+    port: isVercel ? undefined : process.env.PORT || 5000,
+    host: isVercel ? undefined : process.env.HOST || 'localhost',
+    routes: {
+      cors: { origin: ['*'] },
+    },
   });
 
   await server.register(Jwt);
@@ -20,35 +25,28 @@ const createServer = async (container) => {
       aud: false,
       iss: false,
       sub: false,
-      maxAgeSec: process.env.ACCCESS_TOKEN_AGE ? Number(process.env.ACCCESS_TOKEN_AGE) : undefined,
+      maxAgeSec: process.env.ACCCESS_TOKEN_AGE
+        ? Number(process.env.ACCCESS_TOKEN_AGE)
+        : undefined,
     },
-    validate: (artifacts) => ({ isValid: true, credentials: artifacts.decoded.payload }),
+    validate: (artifacts) => ({
+      isValid: true,
+      credentials: artifacts.decoded.payload,
+    }),
   });
 
   await server.register([
-    {
-      plugin: users,
-      options: { container },
-    },
-    {
-      plugin: authentications,
-      options: { container },
-    },
-    {
-      plugin: threads,
-      options: { container },
-    },
+    { plugin: users, options: { container } },
+    { plugin: authentications, options: { container } },
+    { plugin: threads, options: { container } },
   ]);
 
   server.ext('onPreResponse', (request, h) => {
-    // mendapatkan konteks response dari request
     const { response } = request;
 
     if (response instanceof Error) {
-      // bila response tersebut error, tangani sesuai kebutuhan
       const translatedError = DomainErrorTranslator.translate(response);
 
-      // penanganan client error secara internal.
       if (translatedError instanceof ClientError) {
         const newResponse = h.response({
           status: 'fail',
@@ -58,12 +56,10 @@ const createServer = async (container) => {
         return newResponse;
       }
 
-      // mempertahankan penanganan client error oleh hapi secara native, seperti 404, etc.
       if (!translatedError.isServer) {
         return h.continue;
       }
 
-      // penanganan server error sesuai kebutuhan
       const newResponse = h.response({
         status: 'error',
         message: 'terjadi kegagalan pada server kami',
@@ -72,7 +68,6 @@ const createServer = async (container) => {
       return newResponse;
     }
 
-    // jika bukan error, lanjutkan dengan response sebelumnya (tanpa terintervensi)
     return h.continue;
   });
 
