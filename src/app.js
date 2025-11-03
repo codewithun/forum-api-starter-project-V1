@@ -4,30 +4,34 @@ const container = require('./Infrastructures/container');
 let cachedServer;
 
 /**
- * Serverless handler untuk Vercel
+ * Handler untuk Vercel (Serverless)
  */
 module.exports = async (req, res) => {
   try {
-    // Inisialisasi hanya sekali (biar gak reinit tiap request)
     if (!cachedServer) {
       console.log('🚀 Initializing Hapi server...');
+      // Buat server instance
       const server = await createServer(container);
-      await server.initialize(); // <- gunakan initialize() di serverless
-      cachedServer = server; // simpan instance server, bukan function
-      console.log('✅ Hapi server initialized (serverless mode)');
+      // Initialize tanpa mem-bind port
+      await server.initialize();
+
+      // Cache hanya listener-nya, bukan server object
+      cachedServer = server.listener;
+
+      console.log('✅ Hapi server initialized for Vercel');
     }
 
-    // Gunakan listener dari Hapi untuk menangani request/res
-    cachedServer.listener(req, res);
+    // Jalankan listener (fungsi native Node.js)
+    return cachedServer(req, res);
   } catch (err) {
-    console.error('❌ Failed to start serverless function:', err);
+    console.error('❌ Serverless function failed:', err);
     res.statusCode = 500;
     res.end(JSON.stringify({ status: 'error', message: err.message }));
   }
 };
 
 /**
- * Mode lokal (jalankan manual dengan npm run start)
+ * Jalankan server secara lokal
  */
 if (require.main === module) {
   (async () => {
