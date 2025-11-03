@@ -18,10 +18,11 @@ jobs:
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
         options: |
-          --health-cmd="pg_isready -U developer -d forumapi_test"
+          --health-cmd="pg_isready -U postgres"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=15
+          --health-retries=30
+          --health-start-period=20s
 
     env:
       NODE_ENV: test
@@ -45,7 +46,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Wait for Postgres
         run: |
