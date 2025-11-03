@@ -18,7 +18,9 @@ jobs:
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
         options: |
-          --health-cmd="pg_isready -U postgres"
+          # Important: since POSTGRES_USER=developer, the default superuser is 'developer'.
+          # Using 'postgres' here fails because that role doesn't exist.
+          --health-cmd="pg_isready -U developer"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=30
