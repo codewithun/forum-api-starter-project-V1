@@ -18,7 +18,7 @@ jobs:
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
         options: |
-          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-cmd="pg_isready -U developer -d forumapi_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=15
@@ -45,13 +45,13 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Wait for Postgres
         run: |
           echo "🕐 Waiting for Postgres to be ready..."
           for i in {1..40}; do
-            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres; then
+            if pg_isready -h 127.0.0.1 -p 5432 -U developer -d forumapi_test; then
               echo "✅ Postgres is ready!"
               break
             fi
