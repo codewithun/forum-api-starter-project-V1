@@ -46,7 +46,7 @@ class CommentRepositoryPostgres extends CommentRepository {
 
   async getCommentsByThreadId(threadId) {
     const query = {
-      text: `SELECT c.id, u.username, c.date, c.content, c.is_delete
+      text: `SELECT c.id, u.username, (c.date AT TIME ZONE 'Asia/Jakarta') AS date, c.content, c.is_delete
              FROM comments c JOIN users u ON u.id = c.owner
              WHERE c.thread_id = $1
              ORDER BY c.date ASC`,
