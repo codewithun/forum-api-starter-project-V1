@@ -1,4 +1,4 @@
-name: Continuous Deployment
+name: Continuous Deployment (Vercel)
 
 on:
   push:
@@ -7,78 +7,37 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
 
-      - name: Validate required deployment secrets
-        run: |
-          require() { if [ -z "$1" ]; then echo "::error title=Missing secret:: A required secret is not set."; exit 1; fi; }
-          # We only check presence without printing values.
-          require "${SSH_HOST}"
-          require "${SSH_USER}"
-          require "${SSH_KEY}"
-          require "${APP_DIR}"
-          require "${REPO_URL}"
-          require "${BRANCH}"
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-          APP_DIR: ${{ secrets.APP_DIR }}
-          REPO_URL: ${{ secrets.REPO_URL }}
-          BRANCH: ${{ secrets.BRANCH }}
+      - name: Install dependencies
+        run: npm ci
 
-      # Deployment over SSH to your server (EC2 or any Linux VM)
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Run tests (optional)
+        run: npm test
+        env:
+          NODE_ENV: test
+          ACCESS_TOKEN_KEY: test-access-token-key
+          REFRESH_TOKEN_KEY: test-refresh-token-key
+          ACCCESS_TOKEN_AGE: 3000
+          PGHOST_TEST: 127.0.0.1
+          PGUSER_TEST: developer
+          PGPASSWORD_TEST: supersecretpassword
+          PGDATABASE_TEST: forumapi_test
+          PGPORT_TEST: 5432
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script_stop: true
-          script: |
-            set -e
-            # Required secrets:
-            #   APP_DIR: directory on server to place the app (e.g., /var/www/forum-api)
-            #   REPO_URL: git+ssh URL of this repository
-            #   BRANCH: main or master
-            # Optional: PM2_NAME (defaults to forum-api)
-            PM2_NAME=${PM2_NAME:-forum-api}
-
-            mkdir -p "$APP_DIR"
-            if [ ! -d "$APP_DIR/.git" ]; then
-              git clone -b "$BRANCH" "$REPO_URL" "$APP_DIR"
-            fi
-
-            cd "$APP_DIR"
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git reset --hard "origin/$BRANCH"
-
-            # Ensure Node and pm2 exist (install Node via nvm or system packages beforehand)
-            npm ci --omit=dev
-
-            # Run DB migrations for production
-            if [ -f config/database/development.json ]; then
-              npx node-pg-migrate -f config/database/development.json
-            fi
-
-            # Start or restart app using PM2 if available; otherwise, simple nohup
-            if command -v pm2 >/dev/null 2>&1; then
-              pm2 restart "$PM2_NAME" || pm2 start src/app.js --name "$PM2_NAME"
-              pm2 save
-            else
-              # Fallback: run in background (consider using systemd/pm2 for reliability)
-              (nohup node src/app.js >/dev/null 2>&1 & echo $! > app.pid) || true
-            fi
-        env:
-          APP_DIR: ${{ secrets.APP_DIR }}
-          REPO_URL: ${{ secrets.REPO_URL }}
-          BRANCH: ${{ secrets.BRANCH }}
-          PM2_NAME: ${{ secrets.PM2_NAME }}
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          scope: ${{ secrets.VERCEL_ORG_ID }}
