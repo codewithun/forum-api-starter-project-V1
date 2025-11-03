@@ -62,6 +62,12 @@ jobs:
 
       - name: Run DB test migrations
         run: npm run migrate:test
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: developer
+          PGPASSWORD: supersecretpassword
+          PGDATABASE: forumapi_test
 
       - name: Run tests
         run: npm test
