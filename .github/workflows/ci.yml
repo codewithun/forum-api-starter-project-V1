@@ -61,7 +61,7 @@ jobs:
           sleep 3
 
       - name: Run DB test migrations
-        run: npm run migrate:test up
+        run: npm run migrate:test
 
       - name: Run tests
         run: npm test
