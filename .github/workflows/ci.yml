@@ -7,6 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:14
@@ -17,43 +18,56 @@ jobs:
           POSTGRES_PASSWORD: supersecretpassword
           POSTGRES_DB: forumapi_test
         options: >-
-          --health-cmd="pg_isready -U developer -d forumapi_test" \
-          --health-interval=10s \
-          --health-timeout=5s \
-          --health-retries=5
+          --health-cmd="pg_isready -U developer"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=30
+          --health-start-period=20s
+
     env:
       NODE_ENV: test
-      # Database (pool.js reads *_TEST vars when NODE_ENV=test)
       PGHOST_TEST: 127.0.0.1
       PGPORT_TEST: 5432
       PGUSER_TEST: developer
       PGPASSWORD_TEST: supersecretpassword
       PGDATABASE_TEST: forumapi_test
-      # App secrets (any non-empty test values)
       ACCESS_TOKEN_KEY: test-access-token-key
       REFRESH_TOKEN_KEY: test-refresh-token-key
       ACCCESS_TOKEN_AGE: 3000
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
 
       - name: Install dependencies
         run: npm install
 
-      - name: Wait for Postgres to be ready
+      - name: Wait for Postgres
         run: |
-          for i in {1..30}; do
-            if pg_isready -h 127.0.0.1 -p 5432 -U developer -d forumapi_test; then
-              echo "Postgres is ready"; break; fi; sleep 2; done
+          echo "🕐 Waiting for Postgres to be ready..."
+          for i in {1..40}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U developer; then
+              echo "✅ Postgres is ready!"
+              break
+            fi
+            echo "⏳ Still waiting ($i/40)..."
+            sleep 3
+          done
+          sleep 3
 
       - name: Run DB test migrations
         run: npm run migrate:test
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: developer
+          PGPASSWORD: supersecretpassword
+          PGDATABASE: forumapi_test
 
-      - name: Run tests (unit + integration + functional)
+      - name: Run tests
         run: npm test
