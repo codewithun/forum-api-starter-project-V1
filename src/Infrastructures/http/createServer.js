@@ -8,13 +8,13 @@ const authentications = require('../../Interfaces/http/api/authentications');
 const threads = require('../../Interfaces/http/api/threads');
 
 const createServer = async (container) => {
-  const isVercel = process.env.VERCEL === '1';
+  const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID; // detect env di Render
   const isForceLimit = process.env.FORCE_LIMIT === 'true';
-  const isTestEnv = process.env.NODE_ENV === 'test'; // ✅ deteksi Jest environment
+  const isTestEnv = process.env.NODE_ENV === 'test'; // skip limiter saat Jest test
 
   const server = Hapi.server({
-    port: isVercel ? undefined : process.env.PORT || 5000,
-    host: isVercel ? undefined : process.env.HOST || 'localhost',
+    port: process.env.PORT || 5000,
+    host: process.env.HOST || '0.0.0.0',
     routes: {
       cors: { origin: ['*'] },
     },
@@ -38,31 +38,28 @@ const createServer = async (container) => {
     }),
   });
 
-  // === Rate Limiter (aktif di Vercel / FORCE_LIMIT, tapi skip kalau test) ===
-  if (!isTestEnv && (isVercel || isForceLimit)) {
+  // === Rate Limiter (aktif kalau di Render / VPS / FORCE_LIMIT, tapi skip saat test)
+  if (!isTestEnv && (isRender || isForceLimit)) {
     await server.register({
       plugin: rateLimit,
       options: {
         userLimit: 90, // maksimal 90 request per menit per IP
         userCache: { expiresIn: 60 * 1000 },
-        pathLimit: false,
+        pathLimit: false, // manual activation per route
       },
     });
 
     server.ext('onPreHandler', (request, h) => {
+      // aktifin limiter hanya di endpoint /threads
       if (request.path.startsWith('/threads')) {
         request.route.settings.plugins['hapi-rate-limit'] = { enabled: true };
       }
       return h.continue;
     });
 
-    console.log(
-      `⚡ Rate limit aktif: ${
-        isVercel ? 'Vercel Mode' : 'Local Force Mode (FORCE_LIMIT=true)'
-      }`
-    );
+    console.log(`⚡ Rate limit aktif di mode ${isRender ? 'Render/VPS' : 'Local Force'}`);
   } else if (isTestEnv) {
-    console.log('🧪 Rate limit dimatikan (Jest test environment)');
+    console.log('🧪 Rate limit dimatikan (test environment)');
   }
 
   // === Register API Plugins ===
