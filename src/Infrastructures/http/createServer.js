@@ -1,5 +1,6 @@
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
+const rateLimit = require('hapi-rate-limit');
 const ClientError = require('../../Commons/exceptions/ClientError');
 const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTranslator');
 const users = require('../../Interfaces/http/api/users');
@@ -8,6 +9,8 @@ const threads = require('../../Interfaces/http/api/threads');
 
 const createServer = async (container) => {
   const isVercel = process.env.VERCEL === '1';
+  const isForceLimit = process.env.FORCE_LIMIT === 'true';
+  const isTestEnv = process.env.NODE_ENV === 'test'; // ✅ deteksi Jest environment
 
   const server = Hapi.server({
     port: isVercel ? undefined : process.env.PORT || 5000,
@@ -35,8 +38,32 @@ const createServer = async (container) => {
     }),
   });
 
-  // Note: Rate limiting is enforced at the NGINX layer in production.
-  // We intentionally do not enable an app-level rate limiter here to keep tests deterministic.
+  // === Rate Limiter (aktif di Vercel / FORCE_LIMIT, tapi skip kalau test) ===
+  if (!isTestEnv && (isVercel || isForceLimit)) {
+    await server.register({
+      plugin: rateLimit,
+      options: {
+        userLimit: 90, // maksimal 90 request per menit per IP
+        userCache: { expiresIn: 60 * 1000 },
+        pathLimit: false,
+      },
+    });
+
+    server.ext('onPreHandler', (request, h) => {
+      if (request.path.startsWith('/threads')) {
+        request.route.settings.plugins['hapi-rate-limit'] = { enabled: true };
+      }
+      return h.continue;
+    });
+
+    console.log(
+      `⚡ Rate limit aktif: ${
+        isVercel ? 'Vercel Mode' : 'Local Force Mode (FORCE_LIMIT=true)'
+      }`
+    );
+  } else if (isTestEnv) {
+    console.log('🧪 Rate limit dimatikan (Jest test environment)');
+  }
 
   // === Register API Plugins ===
   await server.register([
@@ -52,7 +79,6 @@ const createServer = async (container) => {
     if (response instanceof Error) {
       const translatedError = DomainErrorTranslator.translate(response);
 
-      // 1) Known client-side/domain errors -> "fail"
       if (translatedError instanceof ClientError) {
         const newResponse = h.response({
           status: 'fail',
@@ -62,11 +88,8 @@ const createServer = async (container) => {
         return newResponse;
       }
 
-      // 1b) If it's a Boom error (framework-level), keep 4xx as-is, wrap 5xx
       if (translatedError && translatedError.isBoom) {
-        if (!translatedError.isServer) {
-          return h.continue;
-        }
+        if (!translatedError.isServer) return h.continue;
         const newResponse = h.response({
           status: 'error',
           message: 'terjadi kegagalan pada server kami',
@@ -75,7 +98,6 @@ const createServer = async (container) => {
         return newResponse;
       }
 
-      // 2) Non-Boom unexpected errors -> treat as server error
       const newResponse = h.response({
         status: 'error',
         message: 'terjadi kegagalan pada server kami',
@@ -84,12 +106,8 @@ const createServer = async (container) => {
       return newResponse;
     }
 
-    // Handle Boom responses not covered above (e.g., framework/auth errors already
-    // materialized as Boom and not matching our domain ClientError).
     if (response && response.isBoom) {
-      if (!response.isServer) {
-        return h.continue;
-      }
+      if (!response.isServer) return h.continue;
       const newResponse = h.response({
         status: 'error',
         message: 'terjadi kegagalan pada server kami',
