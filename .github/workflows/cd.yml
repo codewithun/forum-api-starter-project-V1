@@ -36,5 +36,9 @@ jobs:
 
             cd /var/www/forumapi/forum-api-starter-project-V1
             git pull origin main
-            npm install
+            # Install production dependencies deterministically
+            npm ci || npm install --omit=dev
+            # Run DB migrations (loads .env via dotenv/config)
+            npm run migrate:prod || true
+            # Restart or start service with PM2
             pm2 restart forum-api || pm2 start src/app.js --name forum-api
