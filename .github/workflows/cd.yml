@@ -28,7 +28,12 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
-            export PATH=$PATH:/usr/bin:/usr/local/bin
+            export NVM_DIR="/root/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+            export PATH=$PATH:/root/.nvm/versions/node/v22.14.0/bin
+
             cd /var/www/forumapi/forum-api-starter-project-V1
             git pull origin main
             npm install
