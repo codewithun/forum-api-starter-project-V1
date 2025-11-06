@@ -1,6 +1,5 @@
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
-const rateLimit = require('hapi-rate-limit');
 const ClientError = require('../../Commons/exceptions/ClientError');
 const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTranslator');
 const users = require('../../Interfaces/http/api/users');
@@ -8,10 +7,6 @@ const authentications = require('../../Interfaces/http/api/authentications');
 const threads = require('../../Interfaces/http/api/threads');
 
 const createServer = async (container) => {
-  const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID; // detect env di Render
-  const isForceLimit = process.env.FORCE_LIMIT === 'true';
-  const isTestEnv = process.env.NODE_ENV === 'test'; // skip limiter saat Jest test
-
   const server = Hapi.server({
     port: process.env.PORT || 5000,
     host: process.env.HOST || '0.0.0.0',
@@ -23,7 +18,7 @@ const createServer = async (container) => {
   // === JWT Authentication ===
   await server.register(Jwt);
   server.auth.strategy('forum_jwt', 'jwt', {
-    keys: process.env.ACCESS_TOKEN_KEY || (isTestEnv ? 'test_access_key' : undefined),
+    keys: process.env.ACCESS_TOKEN_KEY,
     verify: {
       aud: false,
       iss: false,
@@ -37,30 +32,6 @@ const createServer = async (container) => {
       credentials: artifacts.decoded.payload,
     }),
   });
-
-  // === Rate Limiter (aktif kalau di Render / VPS / FORCE_LIMIT, tapi skip saat test)
-  if (!isTestEnv && (isRender || isForceLimit)) {
-    await server.register({
-      plugin: rateLimit,
-      options: {
-        userLimit: 90, // maksimal 90 request per menit per IP
-        userCache: { expiresIn: 60 * 1000 },
-        pathLimit: false, // manual activation per route
-      },
-    });
-
-    server.ext('onPreHandler', (request, h) => {
-      // aktifin limiter hanya di endpoint /threads
-      if (request.path.startsWith('/threads')) {
-        request.route.settings.plugins['hapi-rate-limit'] = { enabled: true };
-      }
-      return h.continue;
-    });
-
-    console.log(`⚡ Rate limit aktif di mode ${isRender ? 'Render/VPS' : 'Local Force'}`);
-  } else if (isTestEnv) {
-    console.log('🧪 Rate limit dimatikan (test environment)');
-  }
 
   // === Register API Plugins ===
   await server.register([
