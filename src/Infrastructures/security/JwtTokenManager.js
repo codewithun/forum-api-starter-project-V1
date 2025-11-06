@@ -8,17 +8,20 @@ class JwtTokenManager extends AuthenticationTokenManager {
   }
 
   async createAccessToken(payload) {
-    return this._jwt.generate(payload, process.env.ACCESS_TOKEN_KEY);
+    const key = process.env.ACCESS_TOKEN_KEY || (process.env.NODE_ENV === 'test' ? 'test_access_key' : undefined);
+    return this._jwt.generate(payload, key);
   }
 
   async createRefreshToken(payload) {
-    return this._jwt.generate(payload, process.env.REFRESH_TOKEN_KEY);
+    const key = process.env.REFRESH_TOKEN_KEY || (process.env.NODE_ENV === 'test' ? 'test_refresh_key' : undefined);
+    return this._jwt.generate(payload, key);
   }
 
   async verifyRefreshToken(token) {
     try {
       const artifacts = this._jwt.decode(token);
-      this._jwt.verify(artifacts, process.env.REFRESH_TOKEN_KEY);
+      const key = process.env.REFRESH_TOKEN_KEY || (process.env.NODE_ENV === 'test' ? 'test_refresh_key' : undefined);
+      this._jwt.verify(artifacts, key);
     } catch (error) {
       throw new InvariantError('refresh token tidak valid');
     }

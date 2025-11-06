@@ -1,6 +1,5 @@
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
-const rateLimit = require('hapi-rate-limit');
 const ClientError = require('../../Commons/exceptions/ClientError');
 const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTranslator');
 const users = require('../../Interfaces/http/api/users');
@@ -23,7 +22,7 @@ const createServer = async (container) => {
   // === JWT Authentication ===
   await server.register(Jwt);
   server.auth.strategy('forum_jwt', 'jwt', {
-    keys: process.env.ACCESS_TOKEN_KEY,
+    keys: process.env.ACCESS_TOKEN_KEY || (isTestEnv ? 'test_access_key' : undefined),
     verify: {
       aud: false,
       iss: false,
