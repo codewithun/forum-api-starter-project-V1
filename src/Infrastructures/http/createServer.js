@@ -40,6 +40,8 @@ const createServer = async (container) => {
     }),
   });
 
+  console.log('📦 Registering plugins...');
+
   // === Register Semua Plugin API ===
   await server.register([
     { plugin: users, options: { container } },
@@ -48,6 +50,8 @@ const createServer = async (container) => {
     { plugin: comments, options: { container } }, 
     { plugin: replies, options: { container } },  
   ]);
+
+  console.log('✅ Semua plugin berhasil diregister.');
 
   // === Global Error Handler ===
   server.ext('onPreResponse', (request, h) => {
