@@ -6,7 +6,11 @@ module.exports = {
   register: async (server, { container }) => {
     console.log('📦 Registering threads plugin...');
     const threadsHandler = new ThreadsHandler(container);
-    server.route(routes(threadsHandler));
+    const routeDefs = routes(threadsHandler);
+
+    console.log('🧩 Routes threads terdaftar:', routeDefs.map(r => `${r.method} ${r.path}`));
+    server.route(routeDefs);
+
     console.log('✅ Threads routes registered.');
   },
 };
