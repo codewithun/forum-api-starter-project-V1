@@ -1,5 +1,4 @@
 const AddThread = require('../../Domains/threads/entities/AddThread');
-const AddedThread = require('../../Domains/threads/entities/AddedThread');
 
 class AddThreadUseCase {
   constructor({ threadRepository }) {
@@ -7,14 +6,18 @@ class AddThreadUseCase {
   }
 
   async execute(useCasePayload, owner) {
-    // Buat entitas AddThread buat validasi
+    // Buat entity buat validasi payload
     const addThread = new AddThread({ ...useCasePayload, owner });
 
-    // Simpan ke database lewat repository
+    // Simpan ke DB
     const addedThread = await this._threadRepository.addThread(addThread);
 
-    // Bungkus hasilnya pakai AddedThread biar sesuai kontrak
-    return new AddedThread(addedThread);
+    // Kembalikan object biasa (bukan instance)
+    return {
+      id: addedThread.id,
+      title: addedThread.title,
+      owner: addedThread.owner,
+    };
   }
 }
 
