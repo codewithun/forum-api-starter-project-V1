@@ -5,26 +5,20 @@ const container = require('./Infrastructures/container');
 let cachedServer;
 
 /**
- * Handler untuk Vercel Serverless
+ * ================================
+ * 🚀 FOR SERVERLESS (Vercel Mode)
+ * ================================
  */
 module.exports = async (req, res) => {
   try {
     if (!cachedServer) {
-      console.log('🚀 Initializing Hapi server (Vercel)...');
-
-      // Buat instance Hapi server
+      console.log('🚀 Initializing Hapi server (Vercel mode)...');
       const server = await createServer(container);
-
-      // Initialize tanpa memanggil start()
-      await server.initialize();
-
-      // Cache Hapi server instance, bukan listener
+      await server.initialize(); // Initialize tanpa listen()
       cachedServer = server;
-
-      console.log('✅ Hapi server ready (serverless mode)');
+      console.log('✅ Hapi server ready in serverless mode');
     }
 
-    // Jalankan request via Node.js HTTP listener
     return cachedServer.listener.emit('request', req, res);
   } catch (err) {
     console.error('❌ Serverless init failed:', err);
@@ -34,12 +28,20 @@ module.exports = async (req, res) => {
 };
 
 /**
- * Handler untuk lokal (npm run start)
+ * =======================================
+ * 🖥️ FOR LOCAL / VPS (PM2 / NODE START)
+ * =======================================
  */
-if (require.main === module) {
+if (require.main === module || process.env.NODE_ENV === 'production') {
   (async () => {
-    const server = await createServer(container);
-    await server.start();
-    console.log(`Server running at: ${server.info.uri}`);
+    try {
+      const server = await createServer(container);
+      await server.start();
+      console.log(`✅ Server running at: ${server.info.uri}`);
+      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    } catch (err) {
+      console.error('💥 Failed to start server:', err);
+      process.exit(1);
+    }
   })();
 }
