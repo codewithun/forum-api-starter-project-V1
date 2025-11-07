@@ -1,4 +1,4 @@
-class GetThreadsUseCase {
+class GetAllThreadsUseCase {
   constructor({ threadRepository }) {
     this._threadRepository = threadRepository;
   }
@@ -8,4 +8,4 @@ class GetThreadsUseCase {
   }
 }
 
-module.exports = GetThreadsUseCase;
+module.exports = GetAllThreadsUseCase;
