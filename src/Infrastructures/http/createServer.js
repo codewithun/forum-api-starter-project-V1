@@ -40,8 +40,6 @@ const createServer = async (container) => {
     }),
   });
 
-  console.log('📦 Registering plugins...');
-
   // === Register Semua Plugin API ===
   await server.register([
     { plugin: users, options: { container } },
@@ -51,16 +49,20 @@ const createServer = async (container) => {
     { plugin: replies, options: { container } },  
   ]);
 
-  console.log('✅ Semua plugin berhasil diregister.');
-
   // === Global Error Handler ===
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
     // Jika response merupakan error
     if (response instanceof Error) {
-      console.error('💥 INTERNAL ERROR:', response);
       const translatedError = DomainErrorTranslator.translate(response);
+      
+      // Log only genuine server errors (5xx), not expected client errors or auth/404
+      if (translatedError && translatedError.isBoom && translatedError.isServer && 
+          !response.message?.includes('Missing authentication') && 
+          !response.message?.includes('Not Found')) {
+        console.error('💥 INTERNAL ERROR:', response);
+      }
 
       // ✅ Jika error berasal dari client (400-an)
       if (translatedError instanceof ClientError) {
