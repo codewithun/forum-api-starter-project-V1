@@ -10,6 +10,7 @@ class ThreadsHandler {
     this.postThreadHandler = this.postThreadHandler.bind(this);
     this.getThreadHandler = this.getThreadHandler.bind(this);
     this.toggleLikeCommentHandler = this.toggleLikeCommentHandler.bind(this);
+    this.getAllThreadsHandler = this.getAllThreadsHandler.bind(this);
   }
 
   async postThreadHandler(request, h) {
