@@ -1,6 +1,7 @@
 const AddThreadUseCase = require('../../../../Applications/use_case/AddThreadUseCase');
 const GetThreadDetailUseCase = require('../../../../Applications/use_case/GetThreadDetailUseCase');
 const ToggleLikeCommentUseCase = require('../../../../Applications/use_case/ToggleLikeCommentUseCase');
+const GetAllThreadsUseCase = require('../../../../Applications/use_case/GetAllThreadsUseCase');
 
 class ThreadsHandler {
   constructor(container) {
@@ -37,6 +38,15 @@ class ThreadsHandler {
     const toggleLikeCommentUseCase = this._container.getInstance(ToggleLikeCommentUseCase.name);
     await toggleLikeCommentUseCase.execute(threadId, commentId, owner);
     return { status: 'success' };
+  }
+
+  async getAllThreadsHandler() {
+    const getAllThreadsUseCase = this._container.getInstance(GetAllThreadsUseCase.name);
+    const threads = await getAllThreadsUseCase.execute();
+    return {
+      status: 'success',
+      data: { threads },
+    };
   }
 }
 
