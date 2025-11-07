@@ -11,6 +11,11 @@ const routes = (handler) => ([
     handler: handler.getThreadHandler,
   },
   {
+  method: 'GET',
+  path: '/threads',
+  handler: handler.getAllThreadsHandler,  
+  },
+  {
     method: 'PUT',
     path: '/threads/{threadId}/comments/{commentId}/likes',
     handler: handler.toggleLikeCommentHandler,

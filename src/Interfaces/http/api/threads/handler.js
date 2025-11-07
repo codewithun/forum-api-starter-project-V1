@@ -38,6 +38,12 @@ class ThreadsHandler {
     await toggleLikeCommentUseCase.execute(threadId, commentId, owner);
     return { status: 'success' };
   }
+
+  async getAllThreadsHandler(request) {
+    const getAllThreadsUseCase = this._container.getInstance(GetAllThreadsUseCase.name);
+    const threads = await getAllThreadsUseCase.execute();
+    return { status: 'success', data: { threads } };
+  }
 }
 
 module.exports = ThreadsHandler;

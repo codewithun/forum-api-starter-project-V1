@@ -39,6 +39,15 @@ class ThreadRepositoryPostgres extends ThreadRepository {
 
     return result.rows[0];
   }
+
+  async getAllThreads() {
+    const query = {
+      text: `SELECT t.id, t.title, (t.date AT TIME ZONE 'Asia/Jakarta') AS date, u.username
+             FROM threads t JOIN users u ON u.id = t.owner`,
+    };
+    const result = await this._pool.query(query);
+    return result.rows;
+  }
 }
 
 module.exports = ThreadRepositoryPostgres;
