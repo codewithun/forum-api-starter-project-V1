@@ -45,6 +45,7 @@ const createServer = async (container) => {
     const { response } = request;
 
     if (response instanceof Error) {
+      console.error('💥 INTERNAL ERROR:', response);
       const translatedError = DomainErrorTranslator.translate(response);
 
       if (translatedError instanceof ClientError) {
