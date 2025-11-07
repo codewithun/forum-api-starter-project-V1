@@ -22,9 +22,10 @@ const baseConfig = isTest
 
 // --- tentukan apakah perlu SSL ---
 const host = baseConfig.host || '';
-const requireSSL =
+const requireSSL = !isTest && (
   process.env.PGSSLMODE === 'require' ||
-  (!host.includes('localhost') && !host.includes('127.0.0.1'));
+  (!host.includes('localhost') && !host.includes('127.0.0.1'))
+);
 
 // --- inisialisasi Pool ---
 const pool = new Pool({
