@@ -7,8 +7,8 @@ const DomainErrorTranslator = require('../../Commons/exceptions/DomainErrorTrans
 const users = require('../../Interfaces/http/api/users');
 const authentications = require('../../Interfaces/http/api/authentications');
 const threads = require('../../Interfaces/http/api/threads');
-const comments = require('../../Interfaces/http/api/comments'); 
-const replies = require('../../Interfaces/http/api/replies');   
+const comments = require('../../Interfaces/http/api/comments');
+const replies = require('../../Interfaces/http/api/replies');
 
 const createServer = async (container) => {
   const server = Hapi.server({
@@ -16,9 +16,20 @@ const createServer = async (container) => {
     host: process.env.HOST || '0.0.0.0',
     routes: {
       cors: {
-        origin: ['*'], // biar bisa diakses bebas selama testing
+        origin: ['*'],
+        additionalHeaders: ['Authorization', 'Content-Type'],
+        additionalExposedHeaders: ['WWW-Authenticate', 'Server-Authorization'],
       },
     },
+  });
+
+  // === Middleware untuk logging semua request (debug proxy header, CORS, dll) ===
+  server.ext('onRequest', (request, h) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`📥 [${request.method.toUpperCase()}] ${request.path}`);
+      console.log('🔑 Headers:', request.headers);
+    }
+    return h.continue;
   });
 
   // === Register JWT Authentication ===
@@ -45,26 +56,18 @@ const createServer = async (container) => {
     { plugin: users, options: { container } },
     { plugin: authentications, options: { container } },
     { plugin: threads, options: { container } },
-    { plugin: comments, options: { container } }, 
-    { plugin: replies, options: { container } },  
+    { plugin: comments, options: { container } },
+    { plugin: replies, options: { container } },
   ]);
 
   // === Global Error Handler ===
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
-    // Jika response merupakan error
+    // Tangani error manual
     if (response instanceof Error) {
       const translatedError = DomainErrorTranslator.translate(response);
-      
-      // Log only genuine server errors (5xx), not expected client errors or auth/404
-      if (translatedError && translatedError.isBoom && translatedError.isServer && 
-          !response.message?.includes('Missing authentication') && 
-          !response.message?.includes('Not Found')) {
-        console.error('💥 INTERNAL ERROR:', response);
-      }
 
-      // ✅ Jika error berasal dari client (400-an)
       if (translatedError instanceof ClientError) {
         const newResponse = h.response({
           status: 'fail',
@@ -74,9 +77,15 @@ const createServer = async (container) => {
         return newResponse;
       }
 
-      // ✅ Jika error dari Hapi (Boom error)
-      if (translatedError && translatedError.isBoom) {
-        if (!translatedError.isServer) return h.continue;
+      // Jika error adalah Boom bawaan Hapi (termasuk auth error)
+      if (response.isBoom) {
+        // Jika error authentication hilang karena header Authorization tidak diterima
+        if (response.output?.statusCode === 401) {
+          console.warn('⚠️  Missing or invalid Authorization header');
+        }
+
+        if (!response.isServer) return h.continue;
+
         const newResponse = h.response({
           status: 'error',
           message: 'terjadi kegagalan pada server kami',
@@ -85,18 +94,8 @@ const createServer = async (container) => {
         return newResponse;
       }
 
-      // ✅ Fallback — error server internal
-      const newResponse = h.response({
-        status: 'error',
-        message: 'terjadi kegagalan pada server kami',
-      });
-      newResponse.code(500);
-      return newResponse;
-    }
-
-    // ✅ Jika response Boom tapi bukan Error instance
-    if (response && response.isBoom) {
-      if (!response.isServer) return h.continue;
+      // Fallback internal error
+      console.error('💥 INTERNAL SERVER ERROR:', response);
       const newResponse = h.response({
         status: 'error',
         message: 'terjadi kegagalan pada server kami',
